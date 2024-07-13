@@ -1,9 +1,12 @@
 
 import os
+import pathlib
+import csv
 import requests
 import json
-import csv
-import pathlib
+
+from api_classes.art_inst_chicago import ArtInstChicago
+from api_classes.met_museum import MetMuseum
 
 data_folder = "data"
 brain_folder = os.path.join(data_folder, "brain")
@@ -12,6 +15,7 @@ in_folder = os.path.join(data_folder, "in")
 out_folder = os.path.join(data_folder, "out")
 
 rest_apis = {}
+rest_api_classes = {}
 
 def is_empty(variable):
     if variable is None:
@@ -28,37 +32,13 @@ def is_empty(variable):
 
     return False
 
-def file_exists(folder_name, json_filename):
-    filename_full_path = os.path.join(folder_name, json_filename)
-    file_path = pathlib.Path(filename_full_path)
-
-    return file_path.is_file()
-
-def load_json(folder_name, json_filename):
-    full_filename = os.path.join(folder_name, json_filename)
-    with open(full_filename, 'w', encoding='utf-8') as file_in:
-        json_data = json.load(file_in)
-
-    if is_empty(json_data):
-        return {}
-
-    return json_data
-
-def output_text(folder_name, filename, text_data):
-    if is_empty(text_data):
-        return
-
-    full_filename = os.path.join(folder_name, filename)
-    with open(full_filename, 'w', encoding='utf-8') as file_out:
-        file_out.write(text_data)
-
 def output_json(folder_name, json_filename, json_data):
     if is_empty(json_data):
         return
 
     full_filename = os.path.join(folder_name, json_filename)
     with open(full_filename, 'w', encoding='utf-8') as file_out:
-        json.dump(json_data, file_out, ensure_ascii=False, indent=4)
+        json.dump(json_data, file_out, indent=4)
 
 def load_config():
     global brain_folder
@@ -75,19 +55,6 @@ def save_config():
     global rest_apis
 
     output_json(brain_folder, "rest_apis.json", rest_apis)
-
-def machine_readable(human_readable_string):
-    return_string = human_readable_string.replace("https://", "")
-    return_string = return_string.replace(":", "_")
-    return_string = return_string.replace(".", "_")
-    return_string = return_string.replace("/", "_")
-    return_string = return_string.replace("\\t", "_")
-    return_string = return_string.replace(" ", "_")
-    return_string = return_string.replace("__", "_")
-    return_string = return_string.replace("__", "_")
-    return_string = return_string.replace("__", "_")
-
-    return return_string
 
 def csv_to_list_of_dictionaries(in_folder, in_file):
     list_of_dictionaries = []
@@ -111,28 +78,26 @@ def add_rest_apis(in_file):
 
     save_config()
 
-def get_info_on_rest_apis():
-    global out_folder
+def assign_api_classes():
+    global apis_folder
 
-    for key, value in rest_apis.items():
-        url = value
-        index = machine_readable(url) + ".json"
-        if not file_exists(apis_folder, index):
-            json_data = get_info_on_rest_api(url)
-            output_json(apis_folder, index, json_data)
+    for api_name, api_url in rest_apis.items():
+        if api_name == "Art Institute of Chicago":
+            this_api = ArtInstChicago(apis_folder, api_url)
+            rest_api_classes[api_name] = this_api
+        elif api_name == "The Metropolitan Museum of Art Collection":
+            this_api = MetMuseum(apis_folder, api_url)
+            rest_api_classes[api_name] = this_api
 
-def get_info_on_rest_api(url):
-    response = requests.get(url)
-
-    print(url)
-    print(response.status_code)
-
-    return response.json()
+def load_api_classes():
+    for rest_api_class in rest_api_classes:
+        rest_api_classes[rest_api_class].load()
 
 def main():
     load_config()
     add_rest_apis("rest_apis.csv")
-    get_info_on_rest_apis()
+    assign_api_classes()
+    load_api_classes()
 
 if __name__ == "__main__":
     main()
